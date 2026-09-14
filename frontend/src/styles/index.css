@@ -1,0 +1,169 @@
+:root {
+  --bg: #f5f7fb;
+  --card: #ffffff;
+  --border: #d8dee9;
+  --text: #14213d;
+  --muted: #64748b;
+  --primary: #1d4ed8;
+  --primary-contrast: #ffffff;
+  --success: #14532d;
+  --success-bg: #dcfce7;
+  --danger: #7f1d1d;
+  --danger-bg: #fee2e2;
+  --warning: #78350f;
+  --warning-bg: #fef3c7;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+}
+a:hover, a:focus-visible { text-decoration: underline; }
+
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.app-shell__header {
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.brand { font-weight: 700; font-size: 18px; }
+.app-shell__main { max-width: 1080px; margin: 24px auto; padding: 0 16px; }
+
+h1 { font-size: 24px; margin: 0 0 16px; }
+h2 { font-size: 18px; margin: 24px 0 12px; }
+
+.filters {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+.filters label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.filters input, .filters select { min-width: 180px; }
+input, select, textarea, button {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  color: inherit;
+}
+textarea { resize: vertical; }
+
+button {
+  cursor: pointer;
+  background: var(--primary);
+  color: var(--primary-contrast);
+  border-color: var(--primary);
+  font-weight: 600;
+}
+button[disabled] { opacity: 0.6; cursor: not-allowed; }
+button:hover:not([disabled]) { filter: brightness(0.95); }
+
+.users-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.users-table th, .users-table td {
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.users-table tbody tr:last-child td { border-bottom: none; }
+.users-table th { background: #f0f4fa; font-size: 13px; text-transform: uppercase; letter-spacing: 0.03em; }
+.users-table .numeric { text-align: right; font-variant-numeric: tabular-nums; }
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.badge--active { background: var(--success-bg); color: var(--success); }
+.badge--suspended { background: var(--warning-bg); color: var(--warning); }
+.badge--closed { background: var(--danger-bg); color: var(--danger); }
+
+.pagination {
+  margin-top: 12px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: flex-end;
+}
+.pagination button { background: transparent; color: var(--text); border: 1px solid var(--border); }
+
+.user-summary {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+.user-summary dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px 24px;
+  margin: 0;
+}
+.user-summary dt { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.user-summary dd { margin: 0; font-weight: 600; font-size: 16px; }
+
+.wallet-form {
+  margin-top: 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 460px;
+}
+.wallet-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.wallet-form button { align-self: flex-start; }
+
+.feedback { margin: 0; padding: 8px 12px; border-radius: 6px; font-size: 14px; }
+.feedback--error { background: var(--danger-bg); color: var(--danger); }
+.feedback--success { background: var(--success-bg); color: var(--success); }
+
+.recent { margin-top: 32px; }
