@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Diagnostics;
@@ -6,49 +7,49 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
-namespace SchoolPortal.Api.Http;
-
-internal sealed class GlobalExceptionHandler : IExceptionHandler
+namespace SchoolPortal.Api.Http
 {
-    private readonly ILogger<GlobalExceptionHandler> _logger;
-
-    public GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger)
+    internal class GlobalExceptionHandler : IExceptionHandler
     {
-        _logger = logger;
-    }
+        private readonly ILogger<GlobalExceptionHandler> _logger;
 
-    public async ValueTask<bool> TryHandleAsync(
-        HttpContext httpContext,
-        System.Exception exception,
-        CancellationToken cancellationToken)
-    {
-        var (status, title, detail) = exception switch
+        public GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger)
         {
-            DbUpdateConcurrencyException => (StatusCodes.Status412PreconditionFailed, "Concurrent modification",
-                "The resource was modified by another request. Refresh and try again."),
-            _ => (StatusCodes.Status500InternalServerError, "Unexpected error",
-                "An unexpected error occurred while processing the request.")
-        };
-
-        if (status == StatusCodes.Status500InternalServerError)
-        {
-            _logger.LogError(exception, "Unhandled exception on {Path}", httpContext.Request.Path);
-        }
-        else
-        {
-            _logger.LogWarning(exception, "Handled exception on {Path}", httpContext.Request.Path);
+            _logger = logger;
         }
 
-        var problem = new ProblemDetails
+        public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
         {
-            Status = status,
-            Title = title,
-            Detail = detail
-        };
+            int status;
+            string title;
+            string detail;
 
-        httpContext.Response.StatusCode = status;
-        httpContext.Response.ContentType = "application/problem+json";
-        await httpContext.Response.WriteAsJsonAsync(problem, cancellationToken);
-        return true;
+            if (exception is DbUpdateConcurrencyException)
+            {
+                status = StatusCodes.Status412PreconditionFailed;
+                title = "Concurrent modification";
+                detail = "The resource was modified by another request. Refresh and try again.";
+                _logger.LogWarning(exception, "Concurrency clash on {Path}", httpContext.Request.Path);
+            }
+            else
+            {
+                status = StatusCodes.Status500InternalServerError;
+                title = "Unexpected error";
+                detail = "An unexpected error occurred while processing the request.";
+                _logger.LogError(exception, "Unhandled exception on {Path}", httpContext.Request.Path);
+            }
+
+            var problem = new ProblemDetails
+            {
+                Status = status,
+                Title = title,
+                Detail = detail
+            };
+
+            httpContext.Response.StatusCode = status;
+            httpContext.Response.ContentType = "application/problem+json";
+            await httpContext.Response.WriteAsJsonAsync(problem, cancellationToken);
+            return true;
+        }
     }
 }

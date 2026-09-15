@@ -1,21 +1,21 @@
 # School Portal
 
-A small slice of a school administration portal. Admin can find users, open a
-user, and adjust the wallet balance on a parent account. Backend is .NET 8
-with EF Core, frontend is React with TypeScript. The layout follows Clean
-Architecture with the dependency arrow strictly pointing inward.
+A small backend + web app for a school administration portal. Admin can search
+users, open a user, and adjust the wallet balance on a parent account. The
+backend is .NET 8 with EF Core and the frontend is React + TypeScript. The
+layout follows Clean Architecture with the dependency arrow pointing inward.
 
-Part 2 (the wallet-mismatch investigation) and Part 3 (the frontend
-architecture write-up) are in `docs/` as Word files.
+The two write-ups asked for in the test (Part 2 and Part 3) live in `docs/`
+as Word files.
 
-## What is in the repo
+## Layout
 
 ```
 src/
   SchoolPortal.Domain           entities, enums, domain exceptions
-  SchoolPortal.Application      use case handlers, DTOs, abstractions, Result<T>
-  SchoolPortal.Infrastructure   PortalDbContext, UserRepository, EF configurations, seed
-  SchoolPortal.Api              controllers, contracts, exception handler, Program.cs
+  SchoolPortal.Application      services, repositories, DTOs, wrappers, Result<T>
+  SchoolPortal.Infrastructure   AppDbContext, EF configurations, generic + user repositories
+  SchoolPortal.Api              controllers, viewmodels, exception handler, Program.cs
 tests/
   SchoolPortal.UnitTests
   SchoolPortal.IntegrationTests
@@ -25,20 +25,20 @@ docs/
   Part 3 - Frontend Architecture.docx
 ```
 
-`Api` references `Infrastructure` and `Application`. `Infrastructure` references
-`Application` and `Domain`. `Application` references `Domain` only.
-`Application` never imports EF Core or ASP.NET types. `Domain` has no
-third-party references at all.
+`Api` references `Infrastructure` and `Application`. `Infrastructure`
+references `Application` and `Domain`. `Application` references `Domain` only.
+`Application` never imports EF Core or ASP.NET. `Domain` has no third-party
+references at all.
 
 ## Running
 
-Requires the .NET 8 SDK and Node 20 or newer.
+Prerequisites: .NET 8 SDK, Node 20 or newer.
 
 ```
 dotnet run --project src/SchoolPortal.Api
 ```
 
-That starts the API on `http://localhost:5049`. On first boot it calls
+The API starts on `http://localhost:5049`. On first boot it calls
 `EnsureCreated` on a local SQLite file (`schoolportal.db`) and seeds eight
 users. Swagger is on `/swagger`.
 
@@ -49,18 +49,19 @@ npm run dev
 ```
 
 Vite serves on `http://localhost:5173` and proxies `/api/*` to the backend.
-CORS on the API also allows the same origin explicitly, so either works.
+CORS on the API also allows the same origin explicitly.
 
 ## Tests
 
 ```
-dotnet test                            # 23 tests
+dotnet test                            # 25 tests
 cd frontend && npm test                # 4 tests
 ```
 
-The unit tests cover the `User` aggregate invariants and the
-`AdjustWalletHandler` (top-up, overdraw, idempotent replay, and a real
-optimistic-concurrency clash between two concurrent writers).
+The unit tests cover the `User` aggregate invariants and every path through
+`UserService.AdjustWalletAsync`: top-up, overdraw, idempotent replay, zero
+amount, missing key, unknown user, and a real optimistic-concurrency clash
+between two writers.
 
 The integration tests boot the full ASP.NET pipeline with
 `WebApplicationFactory` and hit real endpoints. The SQLite connection is
@@ -74,8 +75,8 @@ server error propagation into the UI, and zero-amount rejection.
 
 ## The API
 
-All responses are JSON. Errors follow RFC 7807 `application/problem+json` and
-carry a `code` extension for machine-readable classification.
+All responses are JSON. Errors follow RFC 7807 (`application/problem+json`)
+and carry a `code` extension for machine classification.
 
 ```
 GET  /api/users?q=&role=&status=&page=1&pageSize=20
@@ -85,77 +86,70 @@ POST /api/users/{id}/wallet-adjustments
      Body:   { "amount": 25.00, "reason": "Topup", "note": "optional" }
 ```
 
-`amount` accepts positive or negative decimals. Amounts that would drive the
-balance below zero come back as `422` with `wallet.insufficient_funds`.
+`amount` takes positive or negative decimals. Amounts that would push the
+balance below zero come back as 422 with `wallet.insufficient_funds`.
 Repeating a POST with the same `Idempotency-Key` returns the original
 adjustment with `wasReplayed: true` and does not write a second row.
 
-## Design decisions
+## How the layers fit together
 
-The wallet is a real invariant on the `User` aggregate. `AdjustWallet` is a
-method on the aggregate, not a service. The audit row (`WalletAdjustment`)
-sits inside the aggregate and is only ever written by the aggregate root, in
-the same `SaveChanges` call as the balance mutation. That is what stops the
-balance and the audit trail from ever disagreeing.
+The `User` aggregate is what owns wallet correctness. `AdjustWallet` is a
+method on `User`, not a service. The audit row (`WalletAdjustment`) sits
+inside the aggregate and is only written by the aggregate root, in the
+same `SaveChangesAsync` call as the balance mutation. That is what keeps
+the running balance and the audit trail from disagreeing.
 
-`IUserRepository` exposes only what the use cases actually need: find, a
-details projection, a paged search, and a replay lookup, plus a
-`SaveChangesAsync` that forwards to the tracked context. There is no
-`IRepository<T>` generic, no leaked `IQueryable<T>`, no wrapper
-`IUnitOfWork` (`DbContext` already is one). Application code cannot see EF
-Core.
+The Application layer follows the shape of the previous take-home. A
+generic `IRepository<T>` and `IService<T>` provide the shared CRUD surface,
+and `IUserRepository : IRepository<User>` plus `UserService : Service<User>,
+IUserService` add the user-specific queries (search projection, details
+projection, replay lookup) and the wallet operation. All write paths go
+through `SaveAllAsync`, which returns `ITransactionResult` so callers can
+report a save failure without swallowing the exception detail.
 
-Handlers are injected directly into the controller. No MediatR. Three
-handlers, small enough that a pipeline mediator would just be ceremony. If
-the surface grows and I really want behavioural pipelines (logging,
-validation, retries), adding MediatR later is a one-file refactor.
+The controller does not do CQRS. There is one `UsersController` and one
+`IUserService`. The three endpoints (search, get, adjust) map one-to-one
+onto three service methods. Search inputs come in as
+`UserSearchParametersViewModel` and get mapped to the service's
+`UserSearchCriteria`; wallet adjustments come in as
+`WalletAdjustmentViewModel` and get mapped to `WalletAdjustmentRequest`.
 
-Expected failures use `Result<T>`. Domain and validation problems return
-`Result<T>.Failure(Error)` and the controller maps `ErrorType` to an HTTP
-status. Real infrastructure exceptions (concurrency, DB) go through
-`IExceptionHandler` and become `ProblemDetails`. Nothing about the
-happy path throws.
+Two things carry over from the design that are worth calling out because
+they are the direct answers to Part 2:
 
-Optimistic concurrency uses a `long Version` on the `User` aggregate,
-incremented inside the aggregate on every adjustment and mapped as an EF
-concurrency token. Two admins on the same account get one winner and a `412
-Precondition Failed` for the loser. This is the concrete answer to the "the
-screen does not match the database" scenario in Part 2.
+- Optimistic concurrency uses a `long Version` on the `User` aggregate,
+  incremented inside the aggregate on each adjustment and mapped as an EF
+  concurrency token. Two admins on the same account: one winner, a
+  `DbUpdateConcurrencyException` for the loser, which the global handler
+  turns into a 412.
+- Idempotency uses a required `Idempotency-Key` header. `(UserId,
+  RequestId)` has a unique index, and the service checks for an existing
+  adjustment before touching the user. Retries collapse to the first row.
 
-Idempotency uses a required `Idempotency-Key` header. The controller
-generates a UUID if the client omitted one, and `(UserId, RequestId)` has a
-unique index. Retries collapse to the first row.
-
-DTOs at every seam. Application returns DTOs, not entities. Controllers
-translate DTOs into response contracts via small mapping extensions. No
-entity, no EF type, no domain exception ever leaks to the wire.
-
-SQLite is used in development and in the test fixtures. The provider is
-switchable via `Persistence:Provider` config. Model configurations use
-`decimal(18,2)` and portable value converters (DateTimeOffset stored as
-binary) so the same model runs against SQL Server without changes.
-
-No EF migrations in the repo. `EnsureCreated` is what the demo needs. In a
-real deployment I would add proper migrations against SQL Server.
+Expected failures use a small `Result<T>` type. Domain and validation
+problems become `Result.Failure(Error)` and the controller maps `ErrorType`
+to an HTTP status. Real infrastructure exceptions (concurrency, DB) still
+propagate to the exception handler and become `ProblemDetails`.
 
 ## Assumptions
 
-- Money is `decimal` and the frontend formats as AUD purely because I had to
-  pick a currency for the demo. A real product needs a Money type with
-  currency and rounding rules.
-- Auth is out of scope for the test. The `PerformedBy` field on the audit
-  row falls back to `"portal-admin"`. In a real deployment this comes off
-  the JWT.
-- Seed data is a small handful of users. Real data would come from the
-  ingestion path (Part 1 of the first take-home).
-- Rate limiting, per-tenant scoping, and telemetry (OpenTelemetry, Serilog
-  with correlation ids) are called out but not implemented within the time
-  budget.
+- Money is `decimal` and the frontend formats as AUD purely because I had
+  to pick a currency for the demo. A production version needs a Money
+  type with currency and rounding rules.
+- Auth is out of scope. `PerformedBy` on the audit row falls back to
+  `"portal-admin"`. In a real deployment this comes off the JWT.
+- Seed data is a handful of users. Real data would come from the
+  ingestion path from the previous take-home.
+- Rate limiting, per-tenant scoping, and structured telemetry (Serilog +
+  correlation ids, OpenTelemetry) are called out but not implemented
+  inside the time budget.
 
 ## AI tools
 
-I used Claude Code as a pair assistant for scaffolding (project structure,
-initial EF configurations, the React shell). The design decisions above, the
-tests, the aggregate boundary, and the concurrency and idempotency contracts
-were all decided and reviewed by hand. If it did not survive a "why is this
-here" pass, it is not in the repo.
+I used Claude Code as a pair assistant for scaffolding project structure,
+the initial EF configurations, and the React shell. Anything design-shaped
+(the aggregate boundary, the concurrency token, the idempotency contract,
+the service structure) I decided on my own and reviewed line by line. The
+generic repository and service pattern here is deliberately the same shape
+as my previous take-home so the two projects read as coming from the same
+codebase.

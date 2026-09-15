@@ -2,22 +2,18 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using FluentAssertions;
-using Microsoft.Extensions.DependencyInjection;
 using SchoolPortal.Domain.Users;
-using SchoolPortal.Infrastructure.Persistence;
 using Xunit;
 
 namespace SchoolPortal.IntegrationTests;
 
 public class UsersEndpointsTests : IClassFixture<PortalApiFactory>
 {
-    private readonly PortalApiFactory _factory;
     private readonly HttpClient _client;
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
     {
@@ -26,7 +22,6 @@ public class UsersEndpointsTests : IClassFixture<PortalApiFactory>
 
     public UsersEndpointsTests(PortalApiFactory factory)
     {
-        _factory = factory;
         _client = factory.CreateClient();
     }
 
