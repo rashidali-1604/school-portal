@@ -5,48 +5,43 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using SchoolPortal.Infrastructure.Persistence;
+using SchoolPortal.Infrastructure.Context;
 
-namespace SchoolPortal.IntegrationTests;
-
-public sealed class PortalApiFactory : WebApplicationFactory<Program>
+namespace SchoolPortal.IntegrationTests
 {
-    private readonly SqliteConnection _connection = new("DataSource=:memory:");
-
-    protected override IHost CreateHost(IHostBuilder builder)
+    public class PortalApiFactory : WebApplicationFactory<Program>
     {
-        _connection.Open();
-        return base.CreateHost(builder);
-    }
+        private readonly SqliteConnection _connection = new("DataSource=:memory:");
 
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
-    {
-        builder.UseEnvironment("Development");
-
-        builder.ConfigureServices(services =>
+        protected override IHost CreateHost(IHostBuilder builder)
         {
-            var descriptors = services
-                .Where(d => d.ServiceType == typeof(DbContextOptions<PortalDbContext>)
-                            || d.ServiceType == typeof(PortalDbContext))
-                .ToList();
-            foreach (var d in descriptors)
-            {
-                services.Remove(d);
-            }
+            _connection.Open();
+            return base.CreateHost(builder);
+        }
 
-            services.AddDbContext<PortalDbContext>(options =>
+        protected override void ConfigureWebHost(IWebHostBuilder builder)
+        {
+            builder.UseEnvironment("Development");
+
+            builder.ConfigureServices(services =>
             {
-                options.UseSqlite(_connection);
+                var descriptors = services.Where(d => d.ServiceType == typeof(DbContextOptions<AppDbContext>) || d.ServiceType == typeof(AppDbContext)).ToList();
+                foreach (var d in descriptors)
+                {
+                    services.Remove(d);
+                }
+
+                services.AddDbContext<AppDbContext>(options => options.UseSqlite(_connection));
             });
-        });
-    }
+        }
 
-    protected override void Dispose(bool disposing)
-    {
-        base.Dispose(disposing);
-        if (disposing)
+        protected override void Dispose(bool disposing)
         {
-            _connection.Dispose();
+            base.Dispose(disposing);
+            if (disposing)
+            {
+                _connection.Dispose();
+            }
         }
     }
 }

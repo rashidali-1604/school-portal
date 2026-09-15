@@ -2,31 +2,53 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SchoolPortal.Application.Common;
 
-namespace SchoolPortal.Api.Http;
-
-internal static class ProblemDetailsFactoryExtensions
+namespace SchoolPortal.Api.Http
 {
-    public static ObjectResult ToActionResult(this Error error)
+    internal static class ProblemDetailsFactoryExtensions
     {
-        var (status, title) = error.Type switch
+        public static ObjectResult ToActionResult(this Error error)
         {
-            ErrorType.NotFound => (StatusCodes.Status404NotFound, "Resource not found"),
-            ErrorType.Validation => (StatusCodes.Status400BadRequest, "Invalid request"),
-            ErrorType.Conflict => (StatusCodes.Status409Conflict, "Conflict"),
-            ErrorType.Domain => (StatusCodes.Status422UnprocessableEntity, "Business rule violated"),
-            ErrorType.Concurrency => (StatusCodes.Status412PreconditionFailed, "Concurrent modification"),
-            _ => (StatusCodes.Status500InternalServerError, "Unexpected error")
-        };
+            int status;
+            string title;
 
-        var problem = new ProblemDetails
-        {
-            Status = status,
-            Title = title,
-            Detail = error.Message,
-            Type = $"about:blank#{error.Code}"
-        };
-        problem.Extensions["code"] = error.Code;
+            switch (error.Type)
+            {
+                case ErrorType.NotFound:
+                    status = StatusCodes.Status404NotFound;
+                    title = "Resource not found";
+                    break;
+                case ErrorType.Validation:
+                    status = StatusCodes.Status400BadRequest;
+                    title = "Invalid request";
+                    break;
+                case ErrorType.Conflict:
+                    status = StatusCodes.Status409Conflict;
+                    title = "Conflict";
+                    break;
+                case ErrorType.Domain:
+                    status = StatusCodes.Status422UnprocessableEntity;
+                    title = "Business rule violated";
+                    break;
+                case ErrorType.Concurrency:
+                    status = StatusCodes.Status412PreconditionFailed;
+                    title = "Concurrent modification";
+                    break;
+                default:
+                    status = StatusCodes.Status500InternalServerError;
+                    title = "Unexpected error";
+                    break;
+            }
 
-        return new ObjectResult(problem) { StatusCode = status };
+            var problem = new ProblemDetails
+            {
+                Status = status,
+                Title = title,
+                Detail = error.Message,
+                Type = $"about:blank#{error.Code}"
+            };
+            problem.Extensions["code"] = error.Code;
+
+            return new ObjectResult(problem) { StatusCode = status };
+        }
     }
 }

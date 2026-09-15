@@ -1,16 +1,14 @@
 using Microsoft.Extensions.DependencyInjection;
-using SchoolPortal.Application.Users.Commands;
-using SchoolPortal.Application.Users.Queries;
+using SchoolPortal.Application.Services;
 
-namespace SchoolPortal.Application;
-
-public static class DependencyInjection
+namespace SchoolPortal.Application
 {
-    public static IServiceCollection AddApplication(this IServiceCollection services)
+    public static class DependencyInjection
     {
-        services.AddScoped<SearchUsersHandler>();
-        services.AddScoped<GetUserByIdHandler>();
-        services.AddScoped<AdjustWalletHandler>();
-        return services;
+        public static IServiceCollection AddApplication(this IServiceCollection services)
+        {
+            services.AddScoped<IUserService, UserService>();
+            return services;
+        }
     }
 }

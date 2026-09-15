@@ -1,12 +1,17 @@
 using SchoolPortal.Domain.Users;
 
-namespace SchoolPortal.Application.Users;
-
-public sealed class UserSearchCriteria
+namespace SchoolPortal.Application.Users
 {
-    public string SearchTerm { get; init; }
-    public UserRole? Role { get; init; }
-    public UserStatus? Status { get; init; }
-    public int Page { get; init; } = 1;
-    public int PageSize { get; init; } = 20;
+    public class UserSearchCriteria
+    {
+        public string SearchTerm { get; set; }
+
+        public UserRole? Role { get; set; }
+
+        public UserStatus? Status { get; set; }
+
+        public int Page { get; set; } = 1;
+
+        public int PageSize { get; set; } = 20;
+    }
 }

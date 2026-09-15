@@ -3,16 +3,13 @@ using Microsoft.EntityFrameworkCore;
 using SchoolPortal.Api.Http;
 using SchoolPortal.Application;
 using SchoolPortal.Infrastructure;
-using SchoolPortal.Infrastructure.Persistence;
+using SchoolPortal.Infrastructure.Context;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services
     .AddControllers()
-    .AddJsonOptions(o =>
-    {
-        o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-    });
+    .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -22,10 +19,7 @@ builder.Services.AddProblemDetails();
 
 builder.Services.AddCors(o =>
 {
-    o.AddDefaultPolicy(p => p
-        .WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")
-        .AllowAnyHeader()
-        .AllowAnyMethod());
+    o.AddDefaultPolicy(p => p.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173").AllowAnyHeader().AllowAnyMethod());
 });
 
 builder.Services.AddApplication();
@@ -35,9 +29,9 @@ var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<PortalDbContext>();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.EnsureCreatedAsync();
-    await PortalDbSeeder.SeedAsync(db);
+    await AppDbSeeder.SeedAsync(db);
 }
 
 app.UseExceptionHandler();
@@ -50,7 +44,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors();
-
 app.MapControllers();
 
 app.Run();
